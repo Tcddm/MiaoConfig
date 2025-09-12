@@ -1,0 +1,88 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.tcddm</groupId>
+  <artifactId>MiaoConfig</artifactId>
+  <version>1.0</version>
+  <packaging>jar</packaging>
+
+  <name>MiaoConfig</name>
+  <url>http://maven.apache.org</url>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.16.1</version> <!-- 支持Java 21的最新稳定版 -->
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>2.0.16</version>
+      <scope>provided</scope> <!-- 仅在开发和测试时生效，不打包进最终jar -->
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.16</version>
+    </dependency>
+  </dependencies>
+  <profiles>
+    <!-- Java 8版本 -->
+    <profile>
+      <id>java8</id>
+      <properties>
+        <java.version>8</java.version>
+        <jar.classifier>java8</jar.classifier>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.11.0</version>
+            <configuration>
+              <source>8</source>
+              <target>8</target>
+              <release>8</release> <!-- 限制API为Java 8 -->
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- Java 21版本 -->
+    <profile>
+      <id>java21</id>
+      <properties>
+        <java.version>21</java.version>
+        <jar.classifier>java21</jar.classifier>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.11.0</version>
+            <configuration>
+              <source>21</source>
+              <target>21</target>
+              <release>21</release> <!-- 允许使用Java 21 API -->
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+  <!-- 统一配置jar包名称（含版本后缀） -->
+  <build>
+    <!--suppress UnresolvedMavenProperty -->
+    <finalName>${project.artifactId}-${project.version}-${jar.classifier}</finalName>
+  </build>
+</project>
