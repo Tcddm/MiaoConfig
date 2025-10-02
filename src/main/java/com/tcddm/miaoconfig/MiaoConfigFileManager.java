@@ -2,6 +2,7 @@ package com.tcddm.miaoconfig;
 
 import com.tcddm.miaoconfig.egg.MiaoLogger;
 import com.tcddm.miaoconfig.exception.MiaoConfigReadException;
+import com.tcddm.miaoconfig.exception.MiaoConfigSaveException;
 import com.tcddm.miaoconfig.parser.MiaoConfigParser;
 
 import java.io.File;
@@ -10,16 +11,20 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 
 public class MiaoConfigFileManager{
     private static final MiaoLogger logger=MiaoLogger.getLogger(MiaoConfigFileManager.class);
-    private  final Map<String,MiaoConfigFile> CONFIGS=new HashMap<>();
-
+    private  final Map<String,MiaoConfigFile> CONFIGS=new ConcurrentHashMap<>();
+    private final Map<String, Lock> fileLocks = new ConcurrentHashMap<>();
     public MiaoConfigFile getForName(String name){return CONFIGS.get(name);}
     public MiaoConfigFileManager addConfigFile(String name, Path path){
         if(ensureFileExists(path)){
@@ -215,6 +220,68 @@ public class MiaoConfigFileManager{
                     ", config=" + config +
                     ", configHash=" + configHash +
                     '}';
+        }
+    }
+    public void saveAllConfig(){
+        for(String configName:CONFIGS.keySet()){
+            saveConfig(configName);
+        }
+    }
+    public void saveConfig(String configName) {saveConfig(configName,null);}
+    public void saveConfig(String configName,String instanceName) {
+        if(!CONFIGS.containsKey(configName)){
+            logger.warn("未找到对应配置文件：{}",configName);
+            return;
+        }
+        Lock lock = fileLocks.computeIfAbsent(configName, k -> new ReentrantLock());
+        lock.lock();
+
+        try {
+            // 获取配置文件
+            MiaoConfigFileManager.MiaoConfigFile miaoConfigFile = CONFIGS.get(configName);
+            Path configPath = miaoConfigFile.getFilePath(); // 替换File为Path
+            // NIO方式检查文件是否存在
+            if (configPath == null || !Files.exists(configPath) || !Files.isRegularFile(configPath)) {
+                handleConfigError(null, "配置文件不存在或不是常规文件", configName, null);
+                return;
+            }
+            //反序列化
+            MiaoConfigParser miaoConfigParser = MiaoConfigFactory.getParser(configPath.getFileName().toString());
+            Map<String, Object> configMap = CONFIGS.get(configName).getConfig();
+            //判断配置是否相同
+          //  if (configMap.hashCode() == miaoConfigFile.getConfigHash()) {
+          //      logger.info("配置保存完成,但是由于没有更改并未写入文件: {}", configName);
+         //       return;
+          //  }
+            String temp = miaoConfigParser.serialize(configMap);
+            //写入文件
+            Files.write(
+                    configPath,
+                    temp.getBytes(StandardCharsets.UTF_8),
+                    StandardOpenOption.WRITE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.CREATE
+            );
+            //完成
+            if(instanceName!=null){
+                logger.info("配置保存完成: {}",instanceName);
+            }else{logger.info("配置保存完成: {}",configName);}
+
+        } catch (IOException e) {
+            handleConfigError(instanceName, "写入配置文件失败", configName, e);
+        } catch (Exception e) {
+            handleConfigError(instanceName, "保存配置文件失败", configName, e);
+        }finally {
+            lock.unlock();
+        }
+    }
+    private void handleConfigError(String instance, String message, String configName, Exception e) {
+
+        MiaoConfigSaveException ex = new MiaoConfigSaveException(message, configName);
+        if (e != null) {
+            logger.error("{}的{}: {}", instance, ex.getMessage(), e.getMessage());
+        } else {
+            logger.error("{}的{}", instance, ex.getMessage());
         }
     }
 }

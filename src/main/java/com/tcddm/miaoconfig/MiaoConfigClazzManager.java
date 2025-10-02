@@ -5,17 +5,12 @@ import com.tcddm.miaoconfig.annotation.MiaoValue;
 import com.tcddm.miaoconfig.egg.MiaoLogger;
 import com.tcddm.miaoconfig.exception.MiaoConfigReadException;
 import com.tcddm.miaoconfig.exception.MiaoConfigSetException;
-import com.tcddm.miaoconfig.parser.MiaoConfigParser;
 
 import java.io.IOException;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
@@ -39,8 +34,8 @@ public class MiaoConfigClazzManager<T> {
     }
 
     public MiaoConfigClazzManager<T> load(T instance) {
-        if (!instance.getClass().isAnnotationPresent(com.tcddm.miaoconfig.annotation.MiaoConfig.class)) {
-            logger.debug("实例缺少注解: {}", instance.getClass().getSimpleName());
+        if (!instance.getClass().isAnnotationPresent(MiaoConfig.class)) {
+            logger.debug("实例缺少注解: {}", instance);
             return this;
         }
         //加入维护表
@@ -69,53 +64,33 @@ public class MiaoConfigClazzManager<T> {
             saveConfig(instance);
         }
     }
-
-    private Map<String, Object> saveEdit(T instance, MiaoConfigFileManager.MiaoConfigFile miaoConfigFile) {
-        return miaoConfigFile.putConfigAndGet(getMapForClazz(instance, true));
+    public void saveAllConfigToMemory() {
+        for (T instance : getAliveInstances()) {
+            saveConfigToMemory(instance);
+        }
     }
-
-    public void saveConfig(T instance) {
-        if (!instance.getClass().isAnnotationPresent(com.tcddm.miaoconfig.annotation.MiaoConfig.class)) {
-            logger.debug("实例缺少注解: {}", instance.getClass().getSimpleName());
+    public void saveConfig(T instance){saveConfig(instance,false);}
+    public void saveConfigToMemory(T instance){saveConfig(instance,true);}
+    private void saveConfig(T instance,boolean saveToMemory){
+        if (!instance.getClass().isAnnotationPresent(MiaoConfig.class)) {
+            logger.debug("实例缺少注解: {}", instance);
             return;
         }
         MiaoConfig miaoConfigAnnotation = instance.getClass().getAnnotation(MiaoConfig.class);
         String configName = miaoConfigAnnotation.configName();
-        try {
-            // 获取配置文件
-            MiaoConfigFileManager.MiaoConfigFile miaoConfigFile = MiaoConfigFactory.getConfigFileManager().getForName(configName);
-            Path configPath = miaoConfigFile.getFilePath(); // 替换File为Path
-            // NIO方式检查文件是否存在
-            if (configPath == null || !Files.exists(configPath) || !Files.isRegularFile(configPath)) {
-                handleConfigError(instance.toString(), "配置文件不存在或不是常规文件", configName, null);
-                return;
-            }
-            //反序列化
-            MiaoConfigParser miaoConfigParser = MiaoConfigFactory.getParser(configPath.getFileName().toString());
-            Map<String, Object> configMap = saveEdit(instance, miaoConfigFile);
-            //判断配置是否相同
-            if (configMap.hashCode() == miaoConfigFile.getConfigHash()) {
-                logger.info("配置保存完成,但是由于没有更改并未写入文件: {}", instance.toString());
-                return;
-            }
-            String temp = miaoConfigParser.serialize(configMap);
-            //写入文件
-            Files.write(
-                    configPath,
-                    temp.getBytes(StandardCharsets.UTF_8),
-                    StandardOpenOption.WRITE,
-                    StandardOpenOption.TRUNCATE_EXISTING,
-                    StandardOpenOption.CREATE
-            );
-            //完成
-            logger.info("配置保存完成: {}", instance.toString());
-
-        } catch (IOException e) {
-            handleConfigError(instance.toString(), "写入配置文件失败", configName, e);
-        } catch (Exception e) {
-            handleConfigError(instance.toString(), "保存配置文件失败", configName, e);
+        MiaoConfigFileManager.MiaoConfigFile miaoConfigFile=MiaoConfigFactory.getConfigFileManager().getForName(configName);
+        Map<String,Object> configData= updateConfigToMemory(instance,miaoConfigFile);
+        if(saveToMemory){return;}
+        if (configData.hashCode() == miaoConfigFile.getConfigHash()) {
+            logger.info("配置保存完成,但是由于没有更改并未写入文件: {}", instance.toString());
+            return;
         }
+        MiaoConfigFactory.getConfigFileManager().saveConfig(configName,String.valueOf(instance));
     }
+    private Map<String,Object> updateConfigToMemory(T instance, MiaoConfigFileManager.MiaoConfigFile miaoConfigFile) {
+        return miaoConfigFile.putConfigAndGet(getMapForClazz(instance, true));
+    }
+
     // 构建完整路径：主节点路径 + 字段路径
     private static String buildFullPath(String mainPath, String fieldPath) {
         if (mainPath == null || mainPath.isEmpty()) {
