@@ -13,7 +13,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +31,7 @@ public class MiaoConfigFileManager{
                 CONFIGS.put(name,new MiaoConfigFile(path,getConfigData(path)));
             } catch (Exception e) {
                 logger.error("添加反序列化缓存失败: {}",e.getMessage());
-                CONFIGS.put(name,new MiaoConfigFile(path,new HashMap<>()));
+                CONFIGS.put(name,new MiaoConfigFile(path,new ConcurrentHashMap<>()));
             }
         }
         return this;
@@ -183,18 +182,19 @@ public class MiaoConfigFileManager{
     public static class MiaoConfigFile{
         private final Path filePath;
         private final Map<String,Object> config;
-        private final int configHash;
+        private boolean isEdit=false;
 
 
         public MiaoConfigFile(Path filePath, Map<String, Object> config) {
             this.filePath = filePath;
             this.config = config;
-            configHash =config.hashCode();
+
         }
 
-        public int getConfigHash() {
-            return configHash;
+        public boolean isEdit() {
+            return isEdit;
         }
+        public void setEdit(){isEdit=true;}
 
         public Path getFilePath() {
             return filePath;
@@ -204,21 +204,13 @@ public class MiaoConfigFileManager{
             return config;
         }
 
-        public void putConfig(Map<String, Object> config) {
-            this.config.putAll(config);
-        }
-        public Map<String,Object> putConfigAndGet(Map<String, Object> config) {
-            putConfig(config);
-            return this.config;
-        }
-
 
         @Override
         public String toString() {
             return "MiaoConfigFile{" +
                     "filePath=" + filePath +
                     ", config=" + config +
-                    ", configHash=" + configHash +
+                    ", isEdit=" + isEdit +
                     '}';
         }
     }

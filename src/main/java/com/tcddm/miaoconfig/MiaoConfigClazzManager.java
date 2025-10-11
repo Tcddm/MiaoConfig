@@ -79,16 +79,39 @@ public class MiaoConfigClazzManager<T> {
         MiaoConfig miaoConfigAnnotation = instance.getClass().getAnnotation(MiaoConfig.class);
         String configName = miaoConfigAnnotation.configName();
         MiaoConfigFileManager.MiaoConfigFile miaoConfigFile=MiaoConfigFactory.getConfigFileManager().getForName(configName);
-        Map<String,Object> configData= updateConfigToMemory(instance,miaoConfigFile);
+        Map<String,Object> configData= updateGlobalConfigToMemory(configName,updateConfigToMemory(instance,miaoConfigFile));
         if(saveToMemory){return;}
-        if (configData.hashCode() == miaoConfigFile.getConfigHash()) {
+        if (!miaoConfigFile.isEdit()) {
             logger.info("配置保存完成,但是由于没有更改并未写入文件: {}", instance.toString());
             return;
         }
         MiaoConfigFactory.getConfigFileManager().saveConfig(configName,String.valueOf(instance));
     }
     private Map<String,Object> updateConfigToMemory(T instance, MiaoConfigFileManager.MiaoConfigFile miaoConfigFile) {
-        return miaoConfigFile.putConfigAndGet(getMapForClazz(instance, true));
+        Map<String,Object> configData=miaoConfigFile.getConfig();
+        Map<String,Object> temp =getMapForClazz(instance,true);
+        for(String path: temp.keySet()){
+            if(PathUtils.setValue(configData,path,temp.get(path))){
+                miaoConfigFile.setEdit();
+            }
+        }
+        return configData;
+    }
+    private Map<String,Object> updateGlobalConfigToMemory(String configName,Map<String,Object> configData){
+        //如果没有全局配置就直接返回原Map
+        if(!MiaoConfigFactory.getHasGlobalConfig(configName)){return configData;}
+        //获得对应的全局配置
+        MiaoGlobalConfig miaoGlobalConfig=MiaoConfigFactory.getGlobalConfig(configName);
+        //将全局配置保存的覆盖
+        Map<String,Object> temp=miaoGlobalConfig.getDynamicConfig();
+        MiaoConfigFileManager.MiaoConfigFile miaoConfigFile=miaoGlobalConfig.getMiaoConfigFile();
+        for(String path: temp.keySet()){
+           if(PathUtils.setValue(configData,path,temp.get(path))){
+               miaoConfigFile.setEdit();
+           }
+        }
+        //返回覆盖后的Map
+        return configData;
     }
 
     // 构建完整路径：主节点路径 + 字段路径
@@ -223,7 +246,8 @@ public class MiaoConfigClazzManager<T> {
                 field.setAccessible(true);
                 Object fieldValue = field.get(config);
                 // 按完整路径设置嵌套值
-                PathUtils.setValue(resultMap, fullPath, fieldValue);
+                //PathUtils.setValue(resultMap, fullPath, fieldValue);
+                resultMap.put(fullPath,fieldValue);
             } catch (IllegalAccessException e) {
                 logger.warn("获取字段{}值失败", field.getName(), e);
             }

@@ -2,8 +2,8 @@ package com.tcddm.miaoconfig.exception;
 
 
 /**
- * 配置文件读取时的非严重异常
- * 用于表示配置读取过程中出现的问题，但不影响程序继续运行
+ * 配置文件保存时的非严重异常
+ * 用于表示保存读取过程中出现的问题，但不影响程序继续运行
  */
 public class MiaoConfigSaveException extends RuntimeException {
     private final String configPath;

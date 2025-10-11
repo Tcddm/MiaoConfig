@@ -2,6 +2,7 @@ package com.tcddm.miaoconfig;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class PathUtils {
     private static final String PATH_SEPARATOR = "\\.";
@@ -46,9 +47,9 @@ public class PathUtils {
      * @param path 路径（如"a.b.c"）
      * @param value 要设置的值
      */
-    public static void setValue(Map<String, Object> map, String path, Object value) {
+    public static boolean setValue(Map<String, Object> map, String path, Object value) {
         if (map == null || path == null || path.isEmpty()) {
-            return;
+            return false;
         }
 
         String[] keys = path.split(PATH_SEPARATOR);
@@ -58,8 +59,49 @@ public class PathUtils {
             String key = keys[i];
             // 最后一个key直接设值
             if (i == keys.length - 1) {
-                current.put(key, value);
-                return;
+                Object existingValue = current.get(key);
+                // 1. 先判断是否为同一对象（快速短路）
+                if (existingValue == value) {
+                    return false;
+                }
+                // 2. 处理null情况
+                if (existingValue == null && value == null) {
+                    return false;
+                }
+                if (existingValue == null || value == null) {
+                    // 一方为null，另一方非null：更新并返回true
+                    current.put(key, value);
+                    return true;
+                }
+                // 3. 类型转换（确保对比公平）
+                Object convertedExisting = TypeConverter.convertValue(existingValue, value.getClass());
+                // 处理转换失败的null情况
+                if (convertedExisting == null) {
+                    // 转换失败时，默认值不相等
+                    current.put(key, value);
+                    return true;
+                }
+                // 4. 分类型对比
+                boolean valuesEqual;
+                if (value.getClass().isArray()) {
+                    valuesEqual = Objects.deepEquals(convertedExisting, value);
+                } else if (value instanceof Enum || existingValue instanceof Enum) {
+                    // 枚举对比（已通过TypeConverter转换类型）
+                    valuesEqual = value.equals(convertedExisting);
+                } else if (value instanceof Number && existingValue instanceof Number) {
+                    // 数字类型兼容对比（如float和double）
+                    valuesEqual = compareNumbers((Number) value, (Number) convertedExisting);
+                } else {
+                    // 其他类型直接用equals
+                    valuesEqual = value.equals(convertedExisting);
+                }
+                // 5. 判断是否更新
+                if (valuesEqual) {
+                    return false; // 未更新
+                } else {
+                    current.put(key, value);
+                    return true; // 已更新
+                }
             }
             // 中间节点不存在则创建新Map
             Object next = current.get(key);
@@ -71,5 +113,15 @@ public class PathUtils {
                 current = newMap;
             }
         }
+        return false;
+    }
+    private static boolean compareNumbers(Number a, Number b) {
+        if (a instanceof Double && b instanceof Float) {
+            return a.doubleValue() == b.doubleValue();
+        }
+        if (a instanceof Float && b instanceof Double) {
+            return a.doubleValue() == b.doubleValue();
+        }
+        return a.equals(b);
     }
 }

@@ -5,6 +5,21 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Java](https://img.shields.io/badge/java-8%2B-orange.svg)](https://java.com)
 [![Java](https://img.shields.io/badge/java-21%2B-orange.svg)](https://java.com)
+## 📚 目录
+- [特性](#✨-特性)
+- [基本使用示例](#-基本使用示例)
+    - [1. 创建配置类](#1创建配置类)
+    - [2. 初始化配置](#2初始化配置)
+    - [3. 修改并保存配置](#3修改并保存配置)
+- [高级特性](#-高级特性)
+    - [多配置文件管理](#多配置文件管理)
+    - [自动扫描配置目录](#自动扫描配置目录)
+    - [一次性字段（不持久化）](#一次性字段不持久化)
+    - [父类字段继承](#父类字段继承)
+    - [拓展支持的类型](#拓展支持的类型)
+    - [直接读取和修改全局配置](#直接读取和修改全局配置)
+- [常见问题](#-常见问题)
+- [许可证](#-许可证)
 ## ✨ 特性
 
 - 🚀 **注解驱动**：使用 `@MiaoConfig` 和 `@MiaoValue` 轻松定义配置
@@ -76,7 +91,7 @@ MiaoConfigFactory.getConfigClazzManager().saveConfigToMemory(config);
 // 批量保存所有已加载的配置实例（保存到内存）
 MiaoConfigFactory.getConfigClazzManager().saveAllConfigToMemory();
 ```
-此时 config/server.json 会被更新为：
+此时config/server.json会被更新为：
 ```json
 {
   "server": {
@@ -90,7 +105,7 @@ MiaoConfigFactory.getConfigClazzManager().saveAllConfigToMemory();
 ```
 ## 📚 高级特性
 ### 多配置文件管理
-支持同时管理多个配置文件，通过 configName 区分，没有则为去掉后缀的文件名：
+支持同时管理多个配置文件，通过configName区分，没有则为去掉后缀的文件名：
 ```java
 // 添加多个配置文件
 MiaoConfigFactory.getConfigFileManager()
@@ -105,13 +120,13 @@ MiaoConfigFactory.getConfigFileManager()
     .addConfigFilePath("config/");
 ```
 ### 一次性字段（不持久化）
-标记为 disposable 的字段不会被保存到文件，适合临时配置：
+标记为disposable的字段不会被保存到文件，适合临时配置：
 ```java
 @MiaoValue(disposable = MiaoIsEnable.ENABLE)
 private String tempToken;  // 修改后不会被保存
 ```
 ### 父类字段继承
-配置类继承父类时，父类中标记 @MiaoValue 的字段也会被自动处理：
+配置类继承父类时，父类中标记@MiaoValue的字段也会被自动处理：
 ```java
 public class BaseConfig {
     @MiaoValue(path = "version")
@@ -153,14 +168,49 @@ public class AppConfig extends BaseConfig {
   // 之后再添加YAML文件
   MiaoConfigFactory.getConfigFileManager().addConfigFile("config/app.yaml"); // 此时会使用YamlConfigParser解析
   ```
+### 直接读取和修改全局配置
+获取MiaoGlobalConfig
+```java
+//不填默认为config
+MiaoConfigFactory.getGlobalConfig(configName);
+```
+读取
+```java
+MiaoGlobalConfig miaoGlobalConfig=MiaoConfigFactory.getGlobalConfig();
+//直接读取
+miaoGlobalConfig.get("server.port",8080,Integer.class);
+//有许多已经包装好的方法
+miaoGlobalConfig.getInt("server.port");
+//带默认值
+miaoGlobalConfig.getInt("server.port",8080);
+```
+修改与取消修改
+```java
+//修改
+miaoGlobalConfig.set("server.port",25565);
+//取消单个修改
+miaoGlobalConfig.cancelSet("server.port");
+//取消全部修改
+miaoGlobalConfig.cancelAllSet();
+```
 ## ❓ 常见问题
 ### Q: 配置文件不存在会报错吗？
-A: 不会，MiaoConfig 会自动创建不存在的配置文件和父目录。
+A: 不会，MiaoConfig会自动创建不存在的配置文件和父目录。
 ### Q: 支持哪些配置格式？
-A: 默认支持 JSON，可通过实现 MiaoConfigParser 接口扩展（如 Properties、YAML）。
+A: 默认支持JSON，可通过实现MiaoConfigParser接口扩展（如 Properties、YAML）。
 ### Q: 如何处理类型转换失败？
 A: 转换失败时会使用字段默认值，并打印警告日志，不影响程序运行。
 ### Q: 弱引用管理会导致配置丢失吗？
 A: 不会，配置数据会持久化到文件，实例被回收后可重新从文件加载。
+### Q: 支持什么类型？
+A: 支持多种数据类型的自动解析与转换，包括但不限于：
+```
+1.基本类型：int、long、short、byte、float、double、boolean、char
+2.引用类型：String、枚举
+3.集合类型：
+    列表：List<String>、List<Integer>等泛型列表
+    映射：Map<String, Object>等泛型映射
+4.数组类型：String[]、int[]等基本类型/引用类型数组
+```
 ## 📄 许可证
 本项目基于 MIT 许可证 开源，详情参见许可证文件。

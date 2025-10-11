@@ -8,13 +8,14 @@ import com.tcddm.miaoconfig.parser.MiaoConfigParser;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MiaoConfigFactory {
     private static final MiaoLogger logger = MiaoLogger.getLogger(MiaoConfigFactory.class);
     private static final Map<String, MiaoConfigParser> PARSERS = new HashMap<>();
     private static final MiaoConfigFileManager miaoConfigFileManager = new MiaoConfigFileManager();
     private static final MiaoConfigClazzManager miaoConfigClazzManager = new MiaoConfigClazzManager();
-
+    private static final Map<String,MiaoGlobalConfig> miaoGlobalConfigs=new ConcurrentHashMap<>();
     static {
 
         // 注册默认解析器
@@ -48,5 +49,21 @@ public class MiaoConfigFactory {
 
         throw new MiaoConfigReadException("不支持的配置文件格式", filename);
 
+    }
+    public static MiaoGlobalConfig getGlobalConfig() {
+        return getGlobalConfig("config");
+    }
+    public static MiaoGlobalConfig getGlobalConfig(String configName) {
+        return miaoGlobalConfigs.computeIfAbsent(configName, key -> {
+            MiaoConfigFileManager.MiaoConfigFile miaoConfigFile = miaoConfigFileManager.getForName(key);
+            if (miaoConfigFile == null) {
+                logger.error("获取配置失败: {}", key);
+                return null;
+            }
+            return new MiaoGlobalConfig(miaoConfigFile);
+        });
+    }
+    public static boolean getHasGlobalConfig(String configName){
+        return miaoGlobalConfigs.containsKey(configName);
     }
 }
