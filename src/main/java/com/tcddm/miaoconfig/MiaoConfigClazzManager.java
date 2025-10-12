@@ -110,6 +110,8 @@ public class MiaoConfigClazzManager<T> {
                miaoConfigFile.setEdit();
            }
         }
+        //取消全部设置
+        miaoGlobalConfig.cancelAllSet();
         //返回覆盖后的Map
         return configData;
     }
