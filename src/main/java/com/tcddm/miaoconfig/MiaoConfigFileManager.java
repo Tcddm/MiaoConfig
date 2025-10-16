@@ -80,35 +80,6 @@ public class MiaoConfigFileManager{
 
         return this;
     }
-    /*private List<File> getAllFiles(File directory) throws MiaoConfigReadException{
-        List<File> fileList = new ArrayList<>();
-
-        // 检查目录是否存在
-        if (!directory.exists()) {
-            throw new MiaoConfigReadException("目录不存在" ,directory.getAbsolutePath());
-        }
-
-        // 检查是否是目录
-        if (!directory.isDirectory()) {
-            throw new MiaoConfigReadException("不是目录" ,directory.getAbsolutePath());
-        }
-
-        // 获取目录中的所有文件和子目录
-        File[] files = directory.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    // 如果是子目录，递归处理
-                    fileList.addAll(getAllFiles(file));
-                } else {
-                    // 如果是文件，添加到列表
-                    fileList.add(file);
-                }
-            }
-        }
-
-        return fileList;
-    }*/
     private String getFileNameWithoutExtension(String fileName) {
         if (fileName == null || fileName.isEmpty()) {
             return fileName;
@@ -195,7 +166,7 @@ public class MiaoConfigFileManager{
             return isEdit;
         }
         public void setEdit(){isEdit=true;}
-
+        public void cancelEdit(){isEdit=false;}
         public Path getFilePath() {
             return filePath;
         }
@@ -212,6 +183,31 @@ public class MiaoConfigFileManager{
                     ", config=" + config +
                     ", isEdit=" + isEdit +
                     '}';
+        }
+    }
+    public void reloadConfig(String configName,boolean isSave) {
+        if (!CONFIGS.containsKey(configName)) {
+            logger.warn("未找到对应配置文件：{}", configName);
+            return;
+        }
+        Lock lock = fileLocks.computeIfAbsent(configName, k -> new ReentrantLock());
+        lock.lock();
+        MiaoConfigFile oldConfigFile=null;
+        try {
+            oldConfigFile = CONFIGS.get(configName);
+            Path configPath = oldConfigFile.getFilePath();
+            //先保存当前修改
+            if(isSave){MiaoConfigFactory.getConfigClazzManager().saveConfig(configName);}
+            //重新加载并添加新配置
+            Map<String, Object> newConfigData = getConfigData(configPath);
+            MiaoConfigFile newConfigFile = new MiaoConfigFile(configPath, newConfigData);
+            //重置编辑状态
+            newConfigFile.cancelEdit();
+            CONFIGS.replace(configName,newConfigFile);
+        } catch (Exception e) {
+            handleConfigError(null, "重载配置文件失败", configName, e);
+        } finally {
+            lock.unlock();
         }
     }
     public void saveAllConfig(){
@@ -240,11 +236,6 @@ public class MiaoConfigFileManager{
             //反序列化
             MiaoConfigParser miaoConfigParser = MiaoConfigFactory.getParser(configPath.getFileName().toString());
             Map<String, Object> configMap = CONFIGS.get(configName).getConfig();
-            //判断配置是否相同
-          //  if (configMap.hashCode() == miaoConfigFile.getConfigHash()) {
-          //      logger.info("配置保存完成,但是由于没有更改并未写入文件: {}", configName);
-         //       return;
-          //  }
             String temp = miaoConfigParser.serialize(configMap);
             //写入文件
             Files.write(

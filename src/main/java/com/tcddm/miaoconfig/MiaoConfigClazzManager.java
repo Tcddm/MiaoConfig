@@ -35,7 +35,7 @@ public class MiaoConfigClazzManager<T> {
 
     public MiaoConfigClazzManager<T> load(T instance) {
         if (!instance.getClass().isAnnotationPresent(MiaoConfig.class)) {
-            logger.debug("实例缺少注解: {}", instance);
+            logger.debug("实例缺少注解: {}", buildInstanceName(instance));
             return this;
         }
         //加入维护表
@@ -48,20 +48,77 @@ public class MiaoConfigClazzManager<T> {
             // 注入配置值
             setFieldsFromMap(instance, MiaoConfigFileManager.getConfigData(configName),miaoConfigAnnotation.path());
 
-            logger.info("配置注入完成: {}", instance.toString());
+            logger.info("配置注入完成: {}", buildInstanceName(instance));
         } catch (IOException e) {
-            handleConfigError(instance.toString(), "读取配置文件失败", configName, e);
+            handleConfigError(buildInstanceName(instance), "读取配置文件失败", configName, e);
         } catch (Exception e) {
-            handleConfigError(instance.toString(), "解析配置文件失败", configName, e);
+            handleConfigError(buildInstanceName(instance), "解析配置文件失败", configName, e);
         }
 
         return this;
     }
-
+    public void reloadAllConfig(){
+        reloadAllConfig(false);
+    }
+    public void saveAndReloadAllConfig(){
+        reloadAllConfig(true);
+    }
+    private void reloadAllConfig(boolean isSave){
+        Map<String,List<T>> instances=new HashMap<>();
+        for(T instance:getAliveInstances()){
+            String configName=instance.getClass().getAnnotation(MiaoConfig.class).configName();
+            if(instances.containsKey(configName)){
+                List<T> temp=instances.get(configName);
+                temp.add(instance);
+            }else{
+                List<T> temp=new ArrayList<>();
+                temp.add(instance);
+                instances.put(configName,temp);
+            }
+        }
+        for(String configName:instances.keySet()){
+            MiaoConfigFactory.getConfigFileManager().reloadConfig(configName,isSave);
+            List<T> temp=instances.get(configName);
+            for(T instance:temp){
+                reloadConfigByMemory(instance);
+            }
+        }
+    }
+    public void reloadConfig(T instance){
+        reloadConfig(instance,false);
+    }
+    public void saveAndReloadConfig(T instance){
+        reloadConfig(instance,true);
+    }
+    private void reloadConfig(T instance,boolean isSave){
+        String configName = instance.getClass().getAnnotation(MiaoConfig.class).configName();
+        MiaoConfigFactory.getConfigFileManager().reloadConfig(configName,isSave);
+        reloadConfigByMemory(instance);
+    }
+    public void reloadConfigByMemory(T instance){
+        MiaoConfig miaoConfigAnnotation = instance.getClass().getAnnotation(MiaoConfig.class);
+        try {
+            setFieldsFromMap(instance, MiaoConfigFactory.getConfigFileManager().getForName(miaoConfigAnnotation.configName()).getConfig(),miaoConfigAnnotation.path());
+            logger.info("配置重载完成：{}",buildInstanceName(instance));
+        } catch (Exception e) {
+            logger.warn("重新注入配置失败：{}",e);
+        }
+    }
     public void saveAllConfig() {
 
         for (T instance : getAliveInstances()) {
             saveConfig(instance);
+        }
+    }
+    public void saveConfig(String configName) {
+        if(configName==null||configName.isEmpty()||MiaoConfigFactory.getConfigFileManager().getForName(configName)==null){
+            logger.debug("未找到对应配置文件：{}", configName);
+            return;
+        }
+        for (T instance : getAliveInstances()) {
+            if(configName.equals(instance.getClass().getAnnotation(MiaoConfig.class).configName())){
+                saveConfig(instance);
+            }
         }
     }
     public void saveAllConfigToMemory() {
@@ -73,7 +130,7 @@ public class MiaoConfigClazzManager<T> {
     public void saveConfigToMemory(T instance){saveConfig(instance,true);}
     private void saveConfig(T instance,boolean saveToMemory){
         if (!instance.getClass().isAnnotationPresent(MiaoConfig.class)) {
-            logger.debug("实例缺少注解: {}", instance);
+            logger.debug("实例缺少注解: {}", buildInstanceName(instance));
             return;
         }
         MiaoConfig miaoConfigAnnotation = instance.getClass().getAnnotation(MiaoConfig.class);
@@ -82,10 +139,10 @@ public class MiaoConfigClazzManager<T> {
         Map<String,Object> configData= updateGlobalConfigToMemory(configName,updateConfigToMemory(instance,miaoConfigFile));
         if(saveToMemory){return;}
         if (!miaoConfigFile.isEdit()) {
-            logger.info("配置保存完成,但是由于没有更改并未写入文件: {}", instance.toString());
+            logger.info("配置保存完成,但是由于没有更改并未写入文件: {}", buildInstanceName(instance));
             return;
         }
-        MiaoConfigFactory.getConfigFileManager().saveConfig(configName,String.valueOf(instance));
+        MiaoConfigFactory.getConfigFileManager().saveConfig(configName,buildInstanceName(instance));
     }
     private Map<String,Object> updateConfigToMemory(T instance, MiaoConfigFileManager.MiaoConfigFile miaoConfigFile) {
         Map<String,Object> configData=miaoConfigFile.getConfig();
@@ -126,15 +183,10 @@ public class MiaoConfigClazzManager<T> {
         }
         return mainPath + "." + fieldPath;
     }
+    private String buildInstanceName(T instance){
+        return instance.getClass().getSimpleName()+"["+instance.hashCode()+"]";
+    }
     private static Map<String, Field> getAllField(Class clazz) {
-     /*   Map<String, Field> fieldMap = new HashMap<>();
-
-        // 预先收集所有字段
-        for (Field field : clazz.getDeclaredFields()) {
-            if(!field.isAnnotationPresent(MiaoValue.class)){continue;}
-            fieldMap.put(field.getName(), field);
-        }
-        return fieldMap;*/
         Map<String, Field> fieldMap = new HashMap<>();
         Class<?> currentClass = clazz;
 
@@ -150,31 +202,6 @@ public class MiaoConfigClazzManager<T> {
         }
         return fieldMap;
     }
-
-    /*private static Object convertValue(Object value, Class<?> targetType) {
-        try {
-            if (targetType == String.class) {
-                return value.toString();
-            } else if (targetType == int.class || targetType == Integer.class) {
-                return Integer.parseInt(value.toString());
-            } else if (targetType == boolean.class || targetType == Boolean.class) {
-                return Boolean.parseBoolean(value.toString());
-            } else if (targetType == double.class || targetType == Double.class) {
-                return Double.parseDouble(value.toString());
-            } else if (targetType == long.class || targetType == Long.class) {
-                return Long.parseLong(value.toString());
-            } else if (targetType == List.class && value instanceof String) {
-                return Arrays.asList(((String) value).split(","));
-            } else if (targetType.isEnum() && value instanceof String) {
-                // 枚举类型支持
-                return Enum.valueOf((Class<Enum>) targetType, value.toString().toUpperCase());
-            }
-            return value;
-        } catch (Exception e) {
-            logger.warn("类型转换失败: {} -> {}，使用原始值", value, targetType.getSimpleName());
-            return value; // 转换失败时返回原始值
-        }
-    }*/
     /**
      * 从Map设置对象字段值
      */
@@ -248,7 +275,6 @@ public class MiaoConfigClazzManager<T> {
                 field.setAccessible(true);
                 Object fieldValue = field.get(config);
                 // 按完整路径设置嵌套值
-                //PathUtils.setValue(resultMap, fullPath, fieldValue);
                 resultMap.put(fullPath,fieldValue);
             } catch (IllegalAccessException e) {
                 logger.warn("获取字段{}值失败", field.getName(), e);

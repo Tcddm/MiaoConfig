@@ -11,6 +11,7 @@
     - [1. 创建配置类](#1创建配置类)
     - [2. 初始化配置](#2初始化配置)
     - [3. 修改并保存配置](#3修改并保存配置)
+    - [4. 重载配置](#4重载配置)
 - [高级特性](#-高级特性)
     - [多配置文件管理](#多配置文件管理)
     - [自动扫描配置目录](#自动扫描配置目录)
@@ -102,6 +103,17 @@ MiaoConfigFactory.getConfigClazzManager().saveAllConfigToMemory();
     }
   }
 }
+```
+### 4.重载配置
+```java
+//重新加载配置
+MiaoConfigFactory.getConfigClazzManager().reloadConfig(config);
+//保存并重新加载配置
+MiaoConfigFactory.getConfigClazzManager().saveAndReloadConfig(config);
+//重新加载所有配置
+MiaoConfigFactory.getConfigClazzManager().reloadAllConfig();
+//保存并重新加载所有配置
+MiaoConfigFactory.getConfigClazzManager().saveAndReloadAllConfig();
 ```
 ## 📚 高级特性
 ### 多配置文件管理
