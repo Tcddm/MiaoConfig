@@ -17,18 +17,18 @@ import java.util.stream.Collectors;
 
 public class MiaoConfigClazzManager<T> {
     private static final MiaoLogger logger=MiaoLogger.getLogger(MiaoConfigClazzManager.class);
-    // 存储弱引用包装的实例（键：弱引用，值：实例本身，仅用于方便获取）
+    //存储弱引用包装的实例（键：弱引用，值：实例本身，仅用于方便获取）
     private final CopyOnWriteArrayList<WeakReference<T>> container = new CopyOnWriteArrayList<>();
-    // 引用队列：当弱引用关联的对象被回收时，弱引用会被加入此队列
+    //引用队列：当弱引用关联的对象被回收时，弱引用会被加入此队列
     private final ReferenceQueue<T> referenceQueue = new ReferenceQueue<>();
 
     /**
      * 添加实例到容器
      */
     private void add(T instance) {
-        // 清理已被回收的引用
+        //清理已被回收的引用
         cleanUp();
-        // 创建弱引用并关联引用队列，然后存入容器
+        //创建弱引用并关联引用队列，然后存入容器
         WeakReference<T> weakRef = new WeakReference<>(instance, referenceQueue);
         container.add(weakRef);
     }
@@ -45,7 +45,7 @@ public class MiaoConfigClazzManager<T> {
         String configName = miaoConfigAnnotation.configName();
         try {
 
-            // 注入配置值
+            //注入配置
             setFieldsFromMap(instance, MiaoConfigFileManager.getConfigData(configName),miaoConfigAnnotation.path());
 
             logger.info("配置注入完成: {}", buildInstanceName(instance));
@@ -173,7 +173,7 @@ public class MiaoConfigClazzManager<T> {
         return configData;
     }
 
-    // 构建完整路径：主节点路径 + 字段路径
+    //构建完整路径：主节点路径 + 字段路径
     private static String buildFullPath(String mainPath, String fieldPath) {
         if (mainPath == null || mainPath.isEmpty()) {
             return fieldPath;
@@ -190,10 +190,10 @@ public class MiaoConfigClazzManager<T> {
         Map<String, Field> fieldMap = new HashMap<>();
         Class<?> currentClass = clazz;
 
-        // 递归处理当前类和父类
+        //递归处理当前类和父类
         while (currentClass != null && !currentClass.equals(Object.class)) {
             for (Field field : currentClass.getDeclaredFields()) {
-                // 只保留带注解的字段，子类覆盖父类
+                //只保留带注解的字段，子类覆盖父类
                 if (field.isAnnotationPresent(MiaoValue.class) && !fieldMap.containsKey(field.getName())) {
                     fieldMap.put(field.getName(), field);
                 }
@@ -211,23 +211,23 @@ public class MiaoConfigClazzManager<T> {
         Map<String, Field> fieldMap = getAllField(clazz);
         for (Field field : fieldMap.values()) {
 
-            // 只处理带@MiaoValue注解的字段
+            //只处理带@MiaoValue注解的字段
             if (!field.isAnnotationPresent(MiaoValue.class)) {continue;}
             logger.debug("处理字段: {} (类型: {})", field.getName(), field.getType());
 
             MiaoValue miaoValue = field.getAnnotation(MiaoValue.class);
-            // 1. 确定字段的子路径（注解path优先，否则用字段名）
+            //确定字段的子路径（注解path优先，否则用字段名）
             String fieldSubPath = miaoValue.path().trim().isEmpty() ? field.getName() : miaoValue.path();
-            // 2. 组合主路径和子路径，得到完整配置路径
+            //组合主路径和子路径，得到完整配置路径
             String fullConfigPath = buildFullPath(mainPath, fieldSubPath);
-            // 3. 从配置数据中按完整路径获取值（支持嵌套路径）
+            //从配置数据中按完整路径获取值（支持嵌套路径）
             Object value = PathUtils.getValue(configData, fullConfigPath);
 
 
                 field.setAccessible(true);
                 if (value != null) {
                     try {
-                        // 简单的类型转换
+                        //类型转换
                             value = TypeConverter.convertValue(value, field.getType(),true);
                         field.set(config, value);
                     } catch (Exception e) {
@@ -249,10 +249,10 @@ public class MiaoConfigClazzManager<T> {
             return resultMap;
         }
 
-        String mainPath = miaoConfig.path();  // 获取主节点路径
+        String mainPath = miaoConfig.path();  //获取主节点路径
         Map<String, Field> fieldMap = getAllField(clazz);
 
-        // 过滤一次性字段
+        //过滤一次性字段
         if (excludeDisposable) {
             fieldMap.values().removeIf(field -> {
                 MiaoValue value = field.getAnnotation(MiaoValue.class);
@@ -260,21 +260,21 @@ public class MiaoConfigClazzManager<T> {
             });
         }
 
-        // 遍历字段生成配置Map（支持嵌套路径）
+        //遍历字段生成配置Map（支持嵌套路径）
         for (Field field : fieldMap.values()) {
             MiaoValue miaoValue = field.getAnnotation(MiaoValue.class);
             if (miaoValue == null) {
                 continue;
             }
 
-            // 确定字段路径并构建完整路径
+            //确定字段路径并构建完整路径
             String fieldPath = miaoValue.path().isEmpty() ? field.getName() : miaoValue.path();
             String fullPath = buildFullPath(mainPath, fieldPath);
 
             try {
                 field.setAccessible(true);
                 Object fieldValue = field.get(config);
-                // 按完整路径设置嵌套值
+                //按完整路径设置嵌套值
                 resultMap.put(fullPath,fieldValue);
             } catch (IllegalAccessException e) {
                 logger.warn("获取字段{}值失败", field.getName(), e);
@@ -319,12 +319,12 @@ public class MiaoConfigClazzManager<T> {
         Reference<? extends T> ref;
         Set<Reference<? extends T>> refsToRemove = new HashSet<>();
 
-        // 收集所有需要移除的引用
+        //收集所有需要移除的引用
         while ((ref = referenceQueue.poll()) != null) {
             refsToRemove.add(ref);
         }
 
-        // 使用Set.contains更快
+        //使用Set.contains更快
         if (!refsToRemove.isEmpty()) {
             container.removeIf(refsToRemove::contains);
         }

@@ -21,12 +21,12 @@ public class MiaoConfigReadException extends RuntimeException {
         this.detailMessage = message;
     }
 
-    // 获取配置文件路径
+    //获取配置文件路径
     public String getConfigPath() {
         return configPath;
     }
 
-    // 获取详细信息（不含前缀和文件路径）
+    //获取详细信息（不含前缀和文件路径）
     public String getDetailMessage() {
         return detailMessage;
     }

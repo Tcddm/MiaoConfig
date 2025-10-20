@@ -23,10 +23,10 @@ import java.util.stream.Collectors;
 public class TypeConverter {
     private static final MiaoLogger logger = MiaoLogger.getLogger(TypeConverter.class);
 
-    // 使用ConcurrentHashMap提高线程安全性
+    //使用ConcurrentHashMap提高线程安全性
     private static final Map<Class<?>, Function<ConvertContext, Object>> CONVERTERS = new HashMap<>();
 
-    // 转换上下文，携带必要的转换信息
+    //转换上下文，携带必要的转换信息
     private static class ConvertContext {
         final Object value;
         final boolean throwOnFailure;
@@ -38,46 +38,46 @@ public class TypeConverter {
     }
 
     static {
-        // 字符串转换
+        //字符串转换
         CONVERTERS.put(String.class, ctx -> ctx.value != null ? ctx.value.toString() : null);
 
-        // 整数类型转换
+        //整数类型转换
         CONVERTERS.put(int.class, ctx -> parseNumber(ctx, Integer::parseInt, 0));
         CONVERTERS.put(Integer.class, ctx -> parseNumber(ctx, Integer::parseInt, null));
 
-        // 布尔类型转换
+        //布尔类型转换
         CONVERTERS.put(boolean.class, ctx -> parseBoolean(ctx, false));
         CONVERTERS.put(Boolean.class, ctx -> parseBoolean(ctx, null));
 
-        // 长整数类型转换
+        //长整数类型转换
         CONVERTERS.put(long.class, ctx -> parseNumber(ctx, Long::parseLong, 0L));
         CONVERTERS.put(Long.class, ctx -> parseNumber(ctx, Long::parseLong, null));
 
-        // 双精度类型转换
+        //双精度类型转换
         CONVERTERS.put(double.class, ctx -> parseNumber(ctx, Double::parseDouble, 0.0));
         CONVERTERS.put(Double.class, ctx -> parseNumber(ctx, Double::parseDouble, null));
 
-        // 单精度类型转换
+        //单精度类型转换
         CONVERTERS.put(float.class, ctx -> parseNumber(ctx, Float::parseFloat, 0.0f));
         CONVERTERS.put(Float.class, ctx -> parseNumber(ctx, Float::parseFloat, null));
 
-        // 短整数类型转换
+        //短整数类型转换
         CONVERTERS.put(short.class, ctx -> parseNumber(ctx, Short::parseShort, (short) 0));
         CONVERTERS.put(Short.class, ctx -> parseNumber(ctx, Short::parseShort, null));
 
-        // 字节类型转换
+        //字节类型转换
         CONVERTERS.put(byte.class, ctx -> parseNumber(ctx, Byte::parseByte, (byte) 0));
         CONVERTERS.put(Byte.class, ctx -> parseNumber(ctx, Byte::parseByte, null));
 
-        // 字符类型转换
+        //字符类型转换
         CONVERTERS.put(char.class, ctx -> parseChar(ctx, '\0'));
         CONVERTERS.put(Character.class, ctx -> parseChar(ctx, null));
 
-        // 日期类型转换
+        //日期类型转换
         CONVERTERS.put(LocalDate.class, ctx -> parseLocalDate(ctx, null));
         CONVERTERS.put(LocalDateTime.class, ctx -> parseLocalDateTime(ctx, null));
 
-        // Optional类型转换
+        //Optional类型转换
         CONVERTERS.put(Optional.class, ctx -> Optional.ofNullable(convertValue(ctx.value, Object.class, ctx.throwOnFailure)));
     }
 
@@ -91,23 +91,23 @@ public class TypeConverter {
      */
     public static Object convertValue(Object value, Class<?> targetType, boolean throwOnFailure) {
 
-        // 如果类型已匹配，直接返回
+        //如果类型已匹配，直接返回
         if (targetType.isInstance(value)) {
             return value;
         }
 
-        // 处理基本类型的包装类转换
+        //处理基本类型的包装类转换
         Class<?> wrapperType = getWrapperType(targetType);
         if (wrapperType != null && wrapperType.isInstance(value)) {
             return value;
         }
 
-        // 尝试使用预定义的转换策略
+        //尝试使用预定义的转换策略
         Function<ConvertContext, Object> converter = CONVERTERS.get(targetType);
         if (converter != null) {
             try {
                 Object result = converter.apply(new ConvertContext(value, throwOnFailure));
-                // 检查转换结果是否有效
+                //检查转换结果是否有效
                 if (result != null || !targetType.isPrimitive()) {
                     return result;
                 }
@@ -116,7 +116,7 @@ public class TypeConverter {
             }
         }
 
-        // 处理枚举类型
+        //处理枚举类型
         if (targetType.isEnum()) {
             Object enumResult = convertToEnum(value, targetType, throwOnFailure);
             if (enumResult != null) {
@@ -128,7 +128,7 @@ public class TypeConverter {
             }
         }
 
-        // 处理列表类型
+        //处理列表类型
         if (List.class.isAssignableFrom(targetType)) {
             try {
                 return convertToList(value, throwOnFailure);
@@ -137,7 +137,7 @@ public class TypeConverter {
             }
         }
 
-        // 处理数组类型
+        //处理数组类型
         if (targetType.isArray()) {
             Object arrayResult = convertToArray(value, targetType, throwOnFailure);
             if (arrayResult != null) {
@@ -149,7 +149,7 @@ public class TypeConverter {
             }
         }
 
-        // 无法转换时根据参数决定行为
+        //无法转换时根据参数决定行为
         return handleUnsupportedConversion(value, targetType, throwOnFailure);
     }
 
@@ -168,10 +168,10 @@ public class TypeConverter {
     private static Object convertToEnum(Object value, Class<?> targetType, boolean throwOnFailure) {
         try {
             String enumName = value.toString().trim();
-            // 先尝试精确匹配
+            //先尝试精确匹配
             return Enum.valueOf((Class<Enum>) targetType, enumName);
         } catch (IllegalArgumentException e) {
-            // 尝试忽略大小写匹配
+            //尝试忽略大小写匹配
             String enumName = value.toString().trim().toUpperCase();
             for (Enum<?> enumConstant : (Enum<?>[]) targetType.getEnumConstants()) {
                 if (enumConstant.name().equals(enumName) ||
@@ -180,7 +180,7 @@ public class TypeConverter {
                 }
             }
 
-            // 尝试通过序号匹配
+            //尝试通过序号匹配
             try {
                 int ordinal = Integer.parseInt(value.toString().trim());
                 Enum<?>[] constants = (Enum<?>[]) targetType.getEnumConstants();
@@ -188,7 +188,7 @@ public class TypeConverter {
                     return constants[ordinal];
                 }
             } catch (NumberFormatException ignored) {
-                // 不是数字格式，忽略
+                //不是数字格式，忽略
             }
 
             String errorMsg = buildErrorMessage(value, targetType, "枚举转换失败");
@@ -210,7 +210,7 @@ public class TypeConverter {
             if (strValue.isEmpty()) {
                 return Collections.emptyList();
             }
-            // 支持逗号分隔的字符串转换为列表，并自动转换元素类型
+            //支持逗号分隔的字符串转换为列表，并自动转换元素类型
             return Arrays.stream(strValue.split(","))
                     .map(String::trim)
                     .collect(Collectors.toList());
@@ -271,7 +271,7 @@ public class TypeConverter {
      */
     private static Boolean parseBoolean(ConvertContext ctx, Boolean defaultValue) {
         if (ctx.value instanceof Number) {
-            // 数字0为false，其他为true
+            //数字0为false，其他为true
             return ((Number) ctx.value).doubleValue() != 0;
         }
 
@@ -301,11 +301,11 @@ public class TypeConverter {
             if (strValue.length() == 1) {
                 return strValue.charAt(0);
             }
-            // 尝试解析为Unicode字符
+            //尝试解析为Unicode字符
             if (strValue.startsWith("\\u")) {
                 return (char) Integer.parseInt(strValue.substring(2), 16);
             }
-            // 尝试解析为ASCII码
+            //尝试解析为ASCII码
             int code = Integer.parseInt(strValue);
             return (char) code;
         } catch (Exception e) {

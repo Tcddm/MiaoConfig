@@ -37,20 +37,20 @@ public class MiaoConfigFileManager{
         return this;
     }
     public MiaoConfigFileManager addConfigFile(String path) {
-        // 直接使用NIO的Paths工具类创建Path对象
+        //创建Path
         Path configPath = Paths.get(path);
         String fileName = getFileNameWithoutExtension(configPath.getFileName().toString());
         return addConfigFile(fileName, configPath);
     }
 
     public MiaoConfigFileManager addConfigFile(String name, String path) {
-        // 将路径字符串转换为Path对象
+        //将路径字符串转换为Path
         Path configPath = Paths.get(path);
         return addConfigFile(name, configPath);
     }
 
     public MiaoConfigFileManager addConfigFile(File file) {
-        // 将File转换为Path
+        //将File转换为Path
         Path configPath = file.toPath();
         String fileName = getFileNameWithoutExtension(configPath.getFileName().toString());
         return addConfigFile(fileName, configPath);
@@ -60,17 +60,17 @@ public class MiaoConfigFileManager{
         return this;
     }
     public MiaoConfigFileManager addConfigFilePath(String path) {
-        // 使用NIO的Path替代File处理目录
+        //使用NIO的Path替代File处理目录
         Path dirPath = Paths.get(path);
         List<Path> filePaths = new ArrayList<>();
 
         try {
-            // 使用NIO的Files.walk()递归遍历目录（替代原有的getAllFiles()方法）
-            // 最大深度设置为Integer.MAX_VALUE以遍历所有子目录
+            //使用NIO的Files.walk()递归遍历目录（替代原有的getAllFiles()方法）
+            //最大深度设置为Integer.MAX_VALUE以遍历所有子目录
             Files.walk(dirPath, Integer.MAX_VALUE)
                     .forEach(filePaths::add);    // 收集所有文件路径
 
-            // 遍历所有文件路径并添加配置
+            //遍历所有文件路径并添加配置
             for (Path filePath : filePaths) {
                 addConfigFile(filePath);
             }
@@ -85,37 +85,37 @@ public class MiaoConfigFileManager{
             return fileName;
         }
 
-        // 找到最后一个点的位置
+        //找到最后一个点的位置
         int lastDotIndex = fileName.lastIndexOf('.');
 
-        // 如果没有点，或者点是最后一个字符，则返回原文件名
+        //如果没有点，或者点是最后一个字符，则返回原文件名
         if (lastDotIndex == -1 || lastDotIndex == fileName.length() - 1) {
             return fileName;
         }
 
-        // 截取从开头到最后一个点之前的部分
+        //截取从开头到最后一个点之前的部分
         return fileName.substring(0, lastDotIndex);
     }
     private  static boolean ensureFileExists(Path filePath) {
         if (filePath == null) {
             return false;
         }
-        // 用 Files.exists 替代 File.exists()
+        //用Files.exists替代File.exists()
         if (Files.exists(filePath)) {
-            return Files.isRegularFile(filePath); // 替代 File.isFile()
+            return Files.isRegularFile(filePath); //替代File.isFile()
         }
-        // 用 Path.getParent() 替代 File.getParentFile()
+        //用Path.getParent()替代File.getParentFile()
         Path parentDir = filePath.getParent();
         if (parentDir != null && !Files.exists(parentDir)) {
             try {
-                // 用 Files.createDirectories 替代 File.mkdirs()（支持创建多级目录）
+                // 用Files.createDirectories替代File.mkdirs()（支持创建多级目录）
                 Files.createDirectories(parentDir);
             } catch (IOException e) {
                 logger.error("创建父目录失败: {}", e.getMessage());
                 return false;
             }
         }
-        // 用 Files.createFile 替代 File.createNewFile()
+        //用Files.createFile替代File.createNewFile()
         try {
             Files.createFile(filePath);
             return true;
@@ -125,26 +125,26 @@ public class MiaoConfigFileManager{
         }
     }
     private static String readFileToString(Path path) throws IOException {
-        // 使用NIO的Files工具类读取所有字节并转换为字符串
+        //使用NIO的Files工具类读取所有字节并转换为字符串
         return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }
 
     public static Map<String, Object> getConfigData(String configName) throws Exception {
-        // 获取配置文件的Path对象（而非File）
+        //获取配置文件的Path对象（而非File）
         Path path = MiaoConfigFactory.getConfigFileManager().getForName(configName).getFilePath();
         return getConfigData(path);
     }
 
     public static Map<String, Object> getConfigData(Path path) throws Exception {
         if (path == null || !Files.exists(path) || !Files.isRegularFile(path)) {
-            // 使用NIO的Files.exists()检查文件是否存在
+            //使用NIO的Files.exists()检查文件是否存在
             throw new MiaoConfigReadException(path != null ? path.toString() : "null", "配置文件不存在或不是常规文件");
         }
 
-        // 读取文件内容（使用NIO路径）
+        //读取文件内容（使用NIO路径）
         String content = readFileToString(path);
 
-        // 解析配置（使用文件名获取解析器）
+        //解析配置
         MiaoConfigParser miaoConfigParser = MiaoConfigFactory.getParser(path.getFileName().toString());
 
 
@@ -225,10 +225,10 @@ public class MiaoConfigFileManager{
         lock.lock();
 
         try {
-            // 获取配置文件
+            //获取配置文件
             MiaoConfigFileManager.MiaoConfigFile miaoConfigFile = CONFIGS.get(configName);
             Path configPath = miaoConfigFile.getFilePath(); // 替换File为Path
-            // NIO方式检查文件是否存在
+            //NIO方式检查文件是否存在
             if (configPath == null || !Files.exists(configPath) || !Files.isRegularFile(configPath)) {
                 handleConfigError(null, "配置文件不存在或不是常规文件", configName, null);
                 return;
